@@ -30,7 +30,7 @@ class Settings(BaseModel):
     GROQ_API_KEY: str = ""
     LLM_API_KEY: str = ""
     LLM_BASE_URL: str = "https://api.groq.com/openai/v1"
-    LLM_MODEL: str = "openai/gpt-oss-120b"
+    LLM_MODEL: str = "llama-3.3-70b-versatile"
 
     @property
     def active_api_key(self) -> str:
@@ -38,8 +38,11 @@ class Settings(BaseModel):
 
     @property
     def active_model(self) -> str:
-        return os.getenv("LLM_MODEL", "") or self.LLM_MODEL or "openai/gpt-oss-120b"
-
+        raw = os.getenv("LLM_MODEL", "") or self.LLM_MODEL or "llama-3.3-70b-versatile"
+        # Protect against non-chat models (like prompt-guard or whisper) accidentally selected in dashboards
+        if not raw or any(bad in raw.lower() for bad in ["guard", "prompt-guard", "classifier", "whisper"]):
+            return "llama-3.3-70b-versatile"
+        return raw
 
     @property
     def active_base_url(self) -> str:

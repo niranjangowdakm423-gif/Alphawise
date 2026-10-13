@@ -74,22 +74,43 @@ class LLMService:
 
         endpoint = f"{settings.active_base_url.rstrip('/')}/chat/completions"
 
+        # Candidate models to try in order of preference
+        primary = settings.active_model
+        candidate_models = [primary]
+        for fallback_m in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
+            if fallback_m not in candidate_models:
+                candidate_models.append(fallback_m)
 
         try:
             async with httpx.AsyncClient(timeout=timeout) as client:
-                resp = await client.post(endpoint, headers=headers, json=payload)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    choices = data.get("choices", [])
-                    if choices:
-                        return choices[0]["message"]["content"]
-                else:
-                    logger.warning(
-                        "LLM endpoint %s returned status %d: %s",
-                        endpoint,
-                        resp.status_code,
-                        resp.text[:200],
-                    )
+                for model_name in candidate_models:
+                    payload: Dict[str, Any] = {
+                        "model": model_name,
+                        "messages": messages,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                    }
+                    if response_format:
+                        payload["response_format"] = response_format
+
+                    resp = await client.post(endpoint, headers=headers, json=payload)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        choices = data.get("choices", [])
+                        if choices:
+                            return choices[0]["message"]["content"]
+                    else:
+                        logger.warning(
+                            "LLM endpoint %s model '%s' returned status %d: %s",
+                            endpoint,
+                            model_name,
+                            resp.status_code,
+                            resp.text[:200],
+                        )
+                        # If unauthorized (401), invalid API key — trying other models won't help
+                        if resp.status_code == 401:
+                            return None
+                        # For other errors (like 400 Bad Request / Invalid Model), loop and try next model
         except httpx.TimeoutException:
             logger.warning("LLM request timed out after %.1fs. Falling back.", timeout)
         except Exception as exc:
@@ -473,7 +494,31 @@ class LLMService:
                 "Because mega-cap equities share high systematic market beta, true diversification requires assets with low inter-correlation."
             )
 
-        # 5. Live stock data inquiry
+        # 5. Company name / ticker resolution inquiry
+        company_tickers = {
+            "tata steel": ("TATASTEEL.NS", "NSE (National Stock Exchange of India) / TATASTEEL.BO"),
+            "tata motors": ("TATAMOTORS.NS", "NSE (India) / TATAMOTORS.BO"),
+            "tcs": ("TCS.NS", "NSE (India) / TCS.BO"),
+            "reliance": ("RELIANCE.NS", "NSE (India) / RELIANCE.BO"),
+            "infosys": ("INFY", "NYSE / INFY.NS"),
+            "apple": ("AAPL", "NASDAQ"),
+            "microsoft": ("MSFT", "NASDAQ"),
+            "nvidia": ("NVDA", "NASDAQ"),
+            "google": ("GOOGL", "NASDAQ"),
+            "amazon": ("AMZN", "NASDAQ"),
+            "tesla": ("TSLA", "NASDAQ"),
+            "gold": ("GLD", "NYSE Arca"),
+            "bitcoin": ("BTC-USD", "Crypto"),
+        }
+        for comp, (sym, exch) in company_tickers.items():
+            if comp in msg:
+                return (
+                    f"🔍 **Ticker Symbol for {comp.title()}:**\n\n"
+                    f"• Primary Symbol: **`{sym}`** ({exch})\n\n"
+                    f"You can enter **`{sym}`** into the **Add Asset** bar in the left sidebar to add it to your portfolio universe and calculate its optimal weights!"
+                )
+
+        # 6. Live stock data inquiry
         if stock_live_data:
             reports = []
             for ticker, d in stock_live_data.items():

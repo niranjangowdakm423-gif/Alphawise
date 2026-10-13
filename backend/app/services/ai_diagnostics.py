@@ -1,5 +1,5 @@
 """
-CapitalX AI Portfolio Diagnostics & Crisis Simulation Engine
+Alphawise AI Portfolio Diagnostics & Crisis Simulation Engine
 ============================================================
 Generates:
 1. Multi-factor Quantitative Health Score (0–100) & Component Breakdown

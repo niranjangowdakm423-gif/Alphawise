@@ -1,5 +1,5 @@
-import { ApiClient } from './api.js';
-import { ChartManager } from './charts.js';
+import { ApiClient } from './api.js?v=2.5.5';
+import { ChartManager } from './charts.js?v=2.5.5';
 
 // Predefined portfolio templates for hackathon showcase
 const PRESETS = {
@@ -79,11 +79,64 @@ let activeWhatIfKey = 'gld';
 
 // Initialize DOM
 document.addEventListener('DOMContentLoaded', () => {
+  setupTheme();
   setupEventListeners();
   loadPreset('tech');
   checkBackendHealth();
   updateWhatIfCard('gld');
 });
+
+function setupTheme() {
+  let savedTheme = 'dark';
+  try {
+    savedTheme = localStorage.getItem('alphawise_theme') || 'dark';
+  } catch (e) {
+    savedTheme = 'dark';
+  }
+  applyTheme(savedTheme);
+
+  window.toggleTheme = function() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'terminal' : 'dark';
+    applyTheme(next);
+    try {
+      localStorage.setItem('alphawise_theme', next);
+    } catch (e) {}
+
+    // If data is already rendered, refresh charts for theme palette
+    if (currentPortfolioData) {
+      try {
+        renderResults(currentPortfolioData);
+      } catch (e) {}
+    }
+  };
+
+  const toggleBtn = document.getElementById('btn-theme-toggle');
+  if (toggleBtn) {
+    toggleBtn.onclick = function(e) {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      window.toggleTheme();
+    };
+  }
+}
+
+function applyTheme(theme) {
+  // Institutional Terminal strictly enforces dark aesthetic
+  const t = theme === 'terminal' ? 'terminal' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  if (document.body) {
+    document.body.setAttribute('data-theme', t);
+  }
+  const icon = document.getElementById('theme-toggle-icon');
+  const label = document.getElementById('theme-toggle-text');
+  if (icon && label) {
+    icon.textContent = '🌙';
+    label.textContent = t === 'terminal' ? 'Terminal Mode' : 'Dark Mode';
+  }
+}
 
 async function checkBackendHealth() {
   const statusText = document.getElementById('backend-status-text');
@@ -104,6 +157,52 @@ function setupEventListeners() {
     btn.addEventListener('click', () => {
       const presetKey = btn.getAttribute('data-preset');
       loadPreset(presetKey);
+    });
+  });
+
+  // Equalize Weights button
+  const equalBtn = document.getElementById('btn-equal-weight');
+  if (equalBtn) {
+    equalBtn.addEventListener('click', () => {
+      const rows = document.querySelectorAll('#asset-tbody tr');
+      if (rows.length === 0) return;
+      const equalWeight = (100.0 / rows.length).toFixed(1);
+      rows.forEach(r => {
+        const input = r.querySelector('.weight-input');
+        if (input) input.value = equalWeight;
+      });
+      updateWeightTotal();
+    });
+  }
+
+  // Clear All button
+  const clearBtn = document.getElementById('btn-clear-assets');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      const tbody = document.getElementById('asset-tbody');
+      tbody.innerHTML = '';
+      updateWeightTotal();
+    });
+  }
+
+  // Quick ticker suggestion chips
+  document.querySelectorAll('[data-quick-ticker]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const ticker = chip.getAttribute('data-quick-ticker');
+      if (ticker) {
+        addAssetRow(ticker, 0);
+        updateWeightTotal();
+        // Focus newly added input
+        const rows = document.querySelectorAll('#asset-tbody tr');
+        const lastRow = rows[rows.length - 1];
+        if (lastRow) {
+          const input = lastRow.querySelector('.weight-input');
+          if (input) {
+            input.focus();
+            input.select();
+          }
+        }
+      }
     });
   });
 
@@ -197,6 +296,15 @@ function setupEventListeners() {
 
   // What-If Inject Button
   document.getElementById('btn-inject-asset').addEventListener('click', injectWhatIfAsset);
+
+  // AI Commentary Re-roll Button
+  const btnRegenAi = document.getElementById('btn-regen-ai');
+  if (btnRegenAi) {
+    btnRegenAi.addEventListener('click', handleRegenerateAiMemo);
+  }
+
+  // Copilot Widget Events
+  setupCopilotEvents();
 }
 
 function loadPreset(presetKey) {
@@ -221,12 +329,15 @@ function addAssetRow(ticker, weightPct) {
 
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><strong class="ticker-name">${ticker}</strong></td>
+    <td><strong class="ticker-name ticker-name-badge">${ticker}</strong></td>
     <td style="text-align: right;">
-      <input type="number" class="weight-input" min="0" max="100" step="1" value="${weightPct.toFixed(1)}"> %
+      <div class="weight-input-container">
+        <input type="number" class="weight-input" min="0" max="100" step="any" value="${weightPct.toFixed(1)}">
+        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">%</span>
+      </div>
     </td>
     <td style="text-align: center;">
-      <button type="button" class="btn-chip btn-remove-asset" title="Remove" style="color: var(--accent-rose);">&times;</button>
+      <button type="button" class="btn-remove-asset" title="Remove asset">&times;</button>
     </td>
   `;
 
@@ -252,17 +363,46 @@ function updateWeightTotal() {
   const totalEl = document.getElementById('weight-total-display');
   totalEl.textContent = `${sum.toFixed(1)}%`;
 
-  if (Math.abs(sum - 100) < 0.1) {
+  // Update visual progress meter
+  const progressBar = document.getElementById('weight-progress-bar');
+  const statusBadge = document.getElementById('weight-status-badge');
+  const clamped = Math.min(100, Math.max(0, sum));
+
+  if (progressBar) {
+    progressBar.style.width = `${clamped}%`;
+  }
+
+  const isBalanced = Math.abs(sum - 100) < 0.1;
+  const isOver = sum > 100.1;
+
+  if (isBalanced) {
     totalEl.className = 'weight-valid';
+    if (progressBar) progressBar.style.backgroundColor = 'var(--accent-emerald)';
+    if (statusBadge) {
+      statusBadge.textContent = 'Balanced';
+      statusBadge.className = 'status-tag valid';
+    }
+  } else if (isOver) {
+    totalEl.className = 'weight-invalid';
+    if (progressBar) progressBar.style.backgroundColor = 'var(--accent-rose)';
+    if (statusBadge) {
+      statusBadge.textContent = `${(sum - 100).toFixed(1)}% Over`;
+      statusBadge.className = 'status-tag invalid';
+    }
   } else {
     totalEl.className = 'weight-invalid';
+    if (progressBar) progressBar.style.backgroundColor = 'var(--accent-amber)';
+    if (statusBadge) {
+      statusBadge.textContent = `${(100 - sum).toFixed(1)}% Left`;
+      statusBadge.className = 'status-tag pending';
+    }
   }
 }
 
 function applyWeightsToInputs(weightsMap) {
   const rows = document.querySelectorAll('#asset-tbody tr');
   rows.forEach(row => {
-    const ticker = row.querySelector('.ticker-name').textContent;
+    const ticker = row.querySelector('.ticker-name').textContent.trim();
     const input = row.querySelector('.weight-input');
     if (weightsMap[ticker] !== undefined) {
       input.value = (weightsMap[ticker] * 100).toFixed(1);
@@ -313,6 +453,7 @@ async function executeOptimization() {
     const data = await ApiClient.optimizePortfolio(payload);
     currentPortfolioData = data;
     renderResults(data);
+    updateCopilotContextBadge();
 
   } catch (err) {
     errorAlert.textContent = err.message || 'An error occurred during optimization.';
@@ -477,7 +618,7 @@ function displayActiveScenario(s) {
   const cushionEl = document.getElementById('stress-cushion-badge');
   const deltaPct = (s.drawdown_delta * 100).toFixed(1);
   cushionEl.textContent = `${s.drawdown_delta >= 0 ? '+' : ''}${deltaPct}% Downside Cushion`;
-  cushionEl.style.color = s.drawdown_delta >= 0 ? '#34d399' : '#f43f5e';
+  cushionEl.style.color = s.drawdown_delta >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)';
   cushionEl.style.borderColor = s.drawdown_delta >= 0 ? 'var(--accent-emerald)' : 'var(--accent-rose)';
 
   document.getElementById('stress-curr-dd').textContent = `${(s.current_drawdown * 100).toFixed(1)}%`;
@@ -558,7 +699,7 @@ function copyTradeTicket() {
 
   const lines = [
     '========================================',
-    'CAPITALX INSTITUTIONAL REBALANCE TICKET',
+    'ALPHAWISE INSTITUTIONAL REBALANCE TICKET',
     `Timestamp: ${new Date().toISOString()}`,
     '========================================',
     `Optimal Sharpe: ${opt.sharpe_ratio.toFixed(2)} (${sharpeDelta >= 0 ? '+' : ''}${sharpeDelta} Δ)`,
@@ -575,7 +716,7 @@ function copyTradeTicket() {
   });
 
   lines.push('========================================');
-  lines.push('Fiduciary Fills Generated by CapitalX Engine');
+  lines.push('Fiduciary Fills Generated by Alphawise Engine');
 
   navigator.clipboard.writeText(lines.join('\n')).then(() => {
     const btn = document.getElementById('btn-copy-ticket');
@@ -602,8 +743,8 @@ function renderRebalanceTable(actions) {
     tr.innerHTML = `
       <td><strong>${item.ticker}</strong></td>
       <td>${currPct}%</td>
-      <td><strong style="color: var(--accent-cyan);">${targetPct}%</strong></td>
-      <td style="color: ${item.delta_weight > 0 ? 'var(--accent-emerald)' : item.delta_weight < 0 ? 'var(--accent-rose)' : 'var(--text-dim)'};">
+      <td><strong style="color: var(--accent-blue);">${targetPct}%</strong></td>
+      <td style="color: ${item.delta_weight > 0 ? 'var(--accent-emerald)' : item.delta_weight < 0 ? 'var(--accent-rose)' : 'var(--text-dim)'}; font-weight: 700;">
         ${item.delta_weight > 0 ? '+' : ''}${deltaPct}%
       </td>
       <td>
@@ -612,4 +753,214 @@ function renderRebalanceTable(actions) {
     `;
     tbody.appendChild(tr);
   });
+}
+
+/* =========================================================================
+   AI Copilot Chat & Narrative Regeneration Handlers
+   ========================================================================= */
+
+let copilotHistory = [];
+
+function setupCopilotEvents() {
+  const launcher = document.getElementById('btn-open-copilot');
+  const windowEl = document.getElementById('copilot-window');
+  const closeBtn = document.getElementById('btn-close-copilot');
+  const clearBtn = document.getElementById('btn-clear-chat');
+  const form = document.getElementById('copilot-form');
+  const input = document.getElementById('copilot-input');
+
+  if (!launcher || !windowEl) return;
+
+  launcher.addEventListener('click', () => {
+    windowEl.classList.toggle('hidden');
+    if (!windowEl.classList.contains('hidden')) {
+      updateCopilotContextBadge();
+      input.focus();
+    }
+  });
+
+  closeBtn.addEventListener('click', () => {
+    windowEl.classList.add('hidden');
+  });
+
+  clearBtn.addEventListener('click', () => {
+    copilotHistory = [];
+    const container = document.getElementById('copilot-messages');
+    container.innerHTML = `
+      <div class="chat-msg bot">
+        <div class="msg-bubble">
+          <p>🧹 <strong>Conversation reset.</strong></p>
+          <p style="margin-top: 4px;">Ask me anything about your active portfolio allocations, risk metrics, or any stock market ticker.</p>
+        </div>
+      </div>
+    `;
+  });
+
+  // Suggestion chips
+  document.querySelectorAll('.suggestion-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const prompt = chip.getAttribute('data-prompt');
+      if (prompt) {
+        input.value = prompt;
+        submitCopilotMessage(prompt);
+      }
+    });
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const query = input.value.trim();
+    if (query) {
+      submitCopilotMessage(query);
+    }
+  });
+}
+
+function updateCopilotContextBadge() {
+  const badge = document.getElementById('copilot-context-label');
+  if (!badge) return;
+  if (currentPortfolioData && currentPortfolioData.metadata && currentPortfolioData.metadata.tickers) {
+    const tickers = currentPortfolioData.metadata.tickers;
+    const count = tickers.length;
+    badge.textContent = `Portfolio Active: ${count} assets (${tickers.slice(0, 3).join(', ')}${count > 3 ? '...' : ''})`;
+  } else {
+    badge.textContent = 'Ready: Ask about your holdings or any stock ticker';
+  }
+}
+
+function getActivePortfolioContext() {
+  if (!currentPortfolioData) return null;
+  const meta = currentPortfolioData.metadata || {};
+  const curr = currentPortfolioData.current_portfolio || {};
+  const opt = currentPortfolioData.max_sharpe_portfolio || {};
+  const risk = currentPortfolioData.risk_metrics || {};
+  const health = currentPortfolioData.health_score || {};
+  const rebalance = currentPortfolioData.rebalance_actions || [];
+
+  return {
+    tickers: meta.tickers || [],
+    curr_weights: curr.weights || {},
+    opt_weights: opt.weights || {},
+    curr_ret: curr.expected_return || 0,
+    curr_vol: curr.volatility || 0,
+    curr_sharpe: curr.sharpe_ratio || 0,
+    opt_ret: opt.expected_return || 0,
+    opt_vol: opt.volatility || 0,
+    opt_sharpe: opt.sharpe_ratio || 0,
+    effective_bets: risk.effective_bets || 0,
+    health_score: health,
+    rebalance_actions: rebalance.slice(0, 6),
+    var_95: risk.var_95 || null,
+    max_drawdown: risk.max_drawdown || null
+  };
+}
+
+function formatMarkdown(text) {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Bold
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Headers
+  html = html.replace(/^### (.*$)/gim, '<h4 style="margin: 6px 0 2px; color: var(--accent-blue); font-size: 0.88rem;">$1</h4>');
+  html = html.replace(/^## (.*$)/gim, '<h3 style="margin: 8px 0 4px; color: var(--accent-blue); font-size: 0.95rem;">$1</h3>');
+  // Bullet lists
+  html = html.replace(/^\s*[-•]\s+(.*$)/gim, '<li style="margin-left: 14px; list-style-type: disc;">$1</li>');
+  html = html.replace(/(<li.*<\/li>)/gms, '<ul style="padding-left: 6px; margin: 4px 0;">$1</ul>');
+  // Paragraphs and breaks
+  html = html.replace(/\n\n/g, '<p style="margin-top: 6px;"></p>');
+  html = html.replace(/\n/g, '<br/>');
+  return html;
+}
+
+async function submitCopilotMessage(userText) {
+  const messagesContainer = document.getElementById('copilot-messages');
+  const input = document.getElementById('copilot-input');
+  const sendBtn = document.getElementById('btn-send-chat');
+
+  // Append user bubble
+  const userDiv = document.createElement('div');
+  userDiv.className = 'chat-msg user';
+  userDiv.innerHTML = `<div class="msg-bubble">${formatMarkdown(userText)}</div>`;
+  messagesContainer.appendChild(userDiv);
+
+  input.value = '';
+  input.disabled = true;
+  sendBtn.disabled = true;
+
+  // Append thinking indicator
+  const thinkingDiv = document.createElement('div');
+  thinkingDiv.className = 'chat-msg bot thinking-msg';
+  thinkingDiv.innerHTML = `
+    <div class="msg-bubble">
+      <div class="typing-dots">
+        <span></span><span></span><span></span>
+      </div>
+      <span style="font-size: 0.72rem; color: var(--text-muted); margin-left: 8px;">Analyzing with Groq LPU...</span>
+    </div>
+  `;
+  messagesContainer.appendChild(thinkingDiv);
+  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+  try {
+    const portfolioCtx = getActivePortfolioContext();
+    const res = await ApiClient.sendChatMessage(userText, copilotHistory, portfolioCtx);
+
+    // Save to history
+    copilotHistory.push({ role: 'user', content: userText });
+    copilotHistory.push({ role: 'assistant', content: res.reply });
+
+    // Replace thinking indicator with response
+    thinkingDiv.className = 'chat-msg bot';
+    thinkingDiv.innerHTML = `<div class="msg-bubble">${formatMarkdown(res.reply)}</div>`;
+  } catch (err) {
+    thinkingDiv.className = 'chat-msg bot';
+    thinkingDiv.innerHTML = `
+      <div class="msg-bubble" style="border-color: var(--accent-rose); color: var(--accent-rose);">
+        ⚠️ <strong>Error:</strong> ${err.message || 'Unable to connect to Copilot'}.
+      </div>
+    `;
+  } finally {
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
+}
+
+async function handleRegenerateAiMemo() {
+  if (!currentPortfolioData) {
+    alert('Please click "Run Quantitative Optimization" first to generate portfolio data.');
+    return;
+  }
+
+  const btn = document.getElementById('btn-regen-ai');
+  const textEl = document.getElementById('btn-regen-ai-text');
+  btn.classList.add('loading');
+  textEl.textContent = '⚡ Groq Thinking...';
+
+  try {
+    const ctx = getActivePortfolioContext();
+    const res = await ApiClient.regenerateMemo('both', ctx);
+
+    if (res.institutional_memo || res.roast_memo) {
+      renderAiCommentary(res);
+      textEl.textContent = '✓ AI Updated!';
+    }
+  } catch (err) {
+    alert(`Could not regenerate memo: ${err.message}`);
+    textEl.textContent = '⚡ AI Re-roll';
+  } finally {
+    setTimeout(() => {
+      btn.classList.remove('loading');
+      textEl.textContent = '⚡ AI Re-roll';
+    }, 2200);
+  }
 }

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: capitalx-backend
+    name: alphawise-backend
     runtime: python
     region: oregon
     plan: free
@@ -12,3 +12,8 @@ services:
         value: 3.11.8
       - key: PORT
         value: 10000
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: llama-3.3-70b-versatile
+

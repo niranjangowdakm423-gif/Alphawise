@@ -7,6 +7,6 @@ router = APIRouter()
 async def health_check():
     return {
         "status": "healthy",
-        "service": "CapitalX Quantitative Engine",
+        "service": "Alphawise Quantitative Engine",
         "timestamp": datetime.now(timezone.utc).isoformat()
     }

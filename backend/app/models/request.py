@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 
 class OptimizationRequest(BaseModel):
     tickers: List[str] = Field(
@@ -58,3 +58,17 @@ class OptimizationRequest(BaseModel):
                     f"for {len(tickers)} assets, or weights cannot sum to 100%."
                 )
         return v
+
+class ChatMessage(BaseModel):
+    role: str = Field(..., description="'user' or 'assistant'")
+    content: str = Field(..., description="Message text")
+
+class ChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, description="User query")
+    conversation_history: List[ChatMessage] = Field(default=[], description="Previous conversation turns")
+    portfolio_context: Optional[Dict[str, Any]] = Field(default=None, description="Active portfolio allocations and metrics")
+
+class RegenerateMemoRequest(BaseModel):
+    mode: str = Field(default="both", description="'institutional', 'roast', or 'both'")
+    portfolio_context: Dict[str, Any] = Field(..., description="Metrics from previous optimization")
+

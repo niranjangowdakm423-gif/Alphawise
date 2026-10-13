@@ -1,15 +1,15 @@
-# CapitalX: Quantitative Portfolio Optimization Platform
+# Alphawise: Quantitative Portfolio Optimization Platform
 
-CapitalX is an institutional-grade, web-based portfolio optimization and risk analytics platform built on Modern Portfolio Theory (MPT), spectral risk decomposition, and market stress regime modeling.
+Alphawise is an institutional-grade, web-based portfolio optimization and risk analytics platform built on Modern Portfolio Theory (MPT), spectral risk decomposition, and market stress regime modeling.
 
 ---
 
 ## Architecture Overview
 
-CapitalX is organized as a unified monorepo with clean separation between the quantitative backend and the presentation frontend:
+Alphawise is organized as a unified monorepo with clean separation between the quantitative backend and the presentation frontend:
 
 ```
-CapitalX/
+Alphawise/
 ├── backend/                  # FastAPI Quantitative Engine (Render deployment)
 │   ├── app/
 │   │   ├── api/v1/           # REST endpoints (/optimize, /health)

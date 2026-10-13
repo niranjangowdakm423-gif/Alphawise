@@ -1,12 +1,12 @@
-class CapitalXException(Exception):
-    """Base exception for all CapitalX domain errors."""
+class AlphawiseException(Exception):
+    """Base exception for all Alphawise domain errors."""
     def __init__(self, message: str, status_code: int = 400):
         super().__init__(message)
         self.message = message
         self.status_code = status_code
 
 
-class TickerNotFoundError(CapitalXException):
+class TickerNotFoundError(AlphawiseException):
     """Raised when one or more requested tickers cannot be resolved."""
     def __init__(self, tickers: list[str]):
         super().__init__(
@@ -16,13 +16,13 @@ class TickerNotFoundError(CapitalXException):
         self.tickers = tickers
 
 
-class InsufficientDataError(CapitalXException):
+class InsufficientDataError(AlphawiseException):
     """Raised when historical data does not meet minimum lookback or quality thresholds."""
     def __init__(self, message: str):
         super().__init__(message, status_code=422)
 
 
-class OptimizationError(CapitalXException):
+class OptimizationError(AlphawiseException):
     """Raised when numerical optimizer fails to converge or constraints are infeasible."""
     def __init__(self, message: str):
         super().__init__(message, status_code=422)

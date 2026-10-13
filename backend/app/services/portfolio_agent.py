@@ -1,5 +1,5 @@
 """
-CapitalX Portfolio Agent — Unified Quantitative Pipeline Orchestrator
+Alphawise Portfolio Agent — Unified Quantitative Pipeline Orchestrator
 =====================================================================
 
 Autonomous execution engine that coordinates:
@@ -48,6 +48,8 @@ from app.models.response import (
 )
 from app.services.ai_diagnostics import DiagnosticsEngine
 from app.services.data_ingestion import MarketDataService
+from app.services.llm_service import LLMService
+
 
 # ── Optional heavy imports with graceful fallback ────────────────────
 _CVXPY_AVAILABLE = True
@@ -62,7 +64,7 @@ try:
 except ImportError:  # pragma: no cover
     _SKLEARN_AVAILABLE = False
 
-logger = logging.getLogger("capitalx.agent")
+logger = logging.getLogger("alphawise.agent")
 
 _TRADING_DAYS = 252
 _HOLD_THRESHOLD = 0.005  # 0.5 % delta → HOLD
@@ -811,9 +813,9 @@ class PortfolioAgent:
     ) -> OptimizationResponse:
         """
         Async entry point. Offloads all CPU-bound computation to a
-        worker thread via ``asyncio.to_thread``.
+        worker thread via ``asyncio.to_thread``, then augments with LLM if configured.
         """
-        return await asyncio.to_thread(
+        response = await asyncio.to_thread(
             self._execute_sync,
             tickers,
             current_weights,
@@ -822,6 +824,63 @@ class PortfolioAgent:
             max_asset_weight,
             frontier_points,
         )
+
+        # Enhance commentary with dynamic Groq / LLM analysis if available
+        if LLMService.is_configured():
+            try:
+                await self._upgrade_memos_with_llm(response)
+            except Exception as exc:
+                logger.warning("LLM memo enhancement skipped: %s", exc)
+
+        return response
+
+    async def _upgrade_memos_with_llm(self, response: OptimizationResponse) -> None:
+        """Asynchronously queries Groq / Ollama to generate rich dynamic commentary."""
+        curr = response.current_portfolio
+        opt = response.max_sharpe_portfolio
+        risk = response.risk_metrics
+        tickers = response.metadata.tickers
+        health = response.health_score.model_dump() if response.health_score else {}
+        rebalances = [r.model_dump() for r in response.rebalance_actions]
+        stresses = [s.model_dump() for s in (response.stress_tests or [])]
+
+        inst_task = LLMService.generate_institutional_memo(
+            tickers=tickers,
+            curr_weights=curr.weights,
+            opt_weights=opt.weights,
+            curr_ret=curr.expected_return,
+            curr_vol=curr.volatility,
+            curr_sharpe=curr.sharpe_ratio,
+            opt_ret=opt.expected_return,
+            opt_vol=opt.volatility,
+            opt_sharpe=opt.sharpe_ratio,
+            effective_bets=risk.effective_bets,
+            health_score=health,
+            rebalance_actions=rebalances,
+            stress_tests=stresses,
+        )
+
+        roast_task = LLMService.generate_roast_memo(
+            tickers=tickers,
+            curr_weights=curr.weights,
+            opt_weights=opt.weights,
+            curr_ret=curr.expected_return,
+            curr_vol=curr.volatility,
+            curr_sharpe=curr.sharpe_ratio,
+            opt_sharpe=opt.sharpe_ratio,
+            effective_bets=risk.effective_bets,
+            rebalance_actions=rebalances,
+        )
+
+        inst_res, roast_res = await asyncio.gather(inst_task, roast_task, return_exceptions=True)
+
+        if isinstance(inst_res, dict) and response.ai_commentary:
+            response.ai_commentary.institutional_memo = InstitutionalMemo(**inst_res)
+            logger.info("Successfully enhanced Institutional Memo with Groq LLM")
+        if isinstance(roast_res, dict) and response.ai_commentary:
+            response.ai_commentary.roast_memo = RoastMemo(**roast_res)
+            logger.info("Successfully enhanced WallStreetBets Roast with Groq LLM")
+
 
     # ── Synchronous computational core ───────────────────────────────
 

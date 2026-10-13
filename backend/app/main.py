@@ -5,14 +5,14 @@ from fastapi.responses import JSONResponse
 import logging
 
 from app.core.config import settings
-from app.core.exceptions import CapitalXException
+from app.core.exceptions import AlphawiseException
 from app.api.v1.api_router import api_router
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
-logger = logging.getLogger("capitalx")
+logger = logging.getLogger("alphawise")
 
 
 @asynccontextmanager
@@ -49,8 +49,8 @@ app.add_middleware(
 )
 
 # Custom domain exception handler
-@app.exception_handler(CapitalXException)
-async def capitalx_exception_handler(request: Request, exc: CapitalXException):
+@app.exception_handler(AlphawiseException)
+async def alphawise_exception_handler(request: Request, exc: AlphawiseException):
     logger.warning(f"Domain exception: {exc.message}")
     return JSONResponse(
         status_code=exc.status_code,

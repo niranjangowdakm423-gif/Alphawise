@@ -1,13 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CapitalX | Institutional Portfolio Intelligence & Risk Engine</title>
+  <title>Alphawise | Institutional Portfolio Intelligence & Risk Engine</title>
+  <!-- Immediately apply theme to avoid flash or cache mismatch -->
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('alphawise_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/styles.css?v=3.0.0">
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 </head>
@@ -16,18 +25,26 @@
   <!-- Top Header Navigation -->
   <header class="app-header">
     <div class="logo-section">
-      <div class="logo-icon">X</div>
+      <div class="logo-icon">A</div>
       <div>
-        <div class="app-title">CapitalX <span class="badge-tag">TERMINAL v2.5</span></div>
+        <div class="app-title">Alphawise <span class="badge-tag">TERMINAL v2.5</span></div>
       </div>
       <span class="tagline">Institutional Quantitative Engine & AI Portfolio Intelligence</span>
     </div>
 
     <div class="header-right">
+      <!-- Theme Switcher Toggle -->
+      <button type="button" id="btn-theme-toggle" class="btn-theme-toggle" title="Switch between Bright Mode and Dark Mode">
+        <span id="theme-toggle-icon">🌙</span>
+        <span id="theme-toggle-text">Dark Mode</span>
+      </button>
+
+      <!-- BlackRock-grade PDF/Print Tear Sheet Export -->
       <button type="button" id="btn-export-pdf" class="btn-tear-sheet" title="Generate BlackRock-grade 1-page institutional tear sheet">
         <span>📄 Export Tear Sheet</span>
       </button>
 
+      <!-- Live Engine Status Badge -->
       <div class="status-badge">
         <span class="pulse-dot" id="backend-dot"></span>
         <span id="backend-status-text">Checking Engine...</span>
@@ -38,54 +55,97 @@
   <!-- Main Container -->
   <main class="main-container">
     
-    <!-- Left Sidebar: Controls & Asset Allocation Inputs -->
+    <!-- Left Sidebar: Organized Controls & Asset Allocation -->
     <aside class="sidebar" id="sidebar-panel">
       
-      <!-- Presets Card -->
+      <!-- Module 1: Strategy Presets & Templates -->
       <div class="card">
         <div class="card-title">
-          <span>Portfolio Presets</span>
-          <span class="hint-text">1-Click Demos</span>
+          <span class="card-title-icon">🎯 Portfolio Presets</span>
+          <span class="hint-text">1-Click Templates</span>
         </div>
         <div class="preset-buttons">
-          <button type="button" class="btn-chip" data-preset="tech">Tech Megacaps 🔥</button>
-          <button type="button" class="btn-chip" data-preset="balanced">Classic 60/40</button>
-          <button type="button" class="btn-chip" data-preset="allweather">All-Weather</button>
-          <button type="button" class="btn-chip" data-preset="inflation">Inflation Shield</button>
+          <button type="button" class="btn-chip" data-preset="tech">🔥 Tech Megacaps</button>
+          <button type="button" class="btn-chip" data-preset="balanced">⚖️ Classic 60/40</button>
+          <button type="button" class="btn-chip" data-preset="allweather">🛡️ All-Weather</button>
+          <button type="button" class="btn-chip" data-preset="inflation">⚡ Inflation Shield</button>
         </div>
 
-        <form id="optimization-form">
-          <!-- Asset Table -->
-          <div class="card-title" style="margin-top: 1rem; font-size: 0.88rem;">
-            <span>Current Asset Allocations</span>
-          </div>
-          
-          <table class="asset-table">
-            <thead>
-              <tr>
-                <th>Ticker</th>
-                <th style="text-align: right;">Weight</th>
-                <th style="text-align: center; width: 35px;"></th>
-              </tr>
-            </thead>
-            <tbody id="asset-tbody">
-              <!-- Dynamically rendered -->
-            </tbody>
-          </table>
+        <div class="sidebar-quick-actions">
+          <button type="button" id="btn-equal-weight" class="btn-quick-util" title="Distribute 100% equally among all assets">⚖️ Equal Weight</button>
+          <button type="button" id="btn-clear-assets" class="btn-quick-util" title="Clear current portfolio">🧹 Clear All</button>
+        </div>
+      </div>
 
-          <div class="weight-summary">
-            <span>Total Allocation:</span>
-            <span id="weight-total-display" class="weight-valid">100.0%</span>
+      <!-- Module 2: Current Holdings & Allocation Universe -->
+      <div class="card">
+        <div class="card-title">
+          <span class="card-title-icon">💼 Portfolio Universe & Weights</span>
+          <span class="hint-text">Holdings</span>
+        </div>
+
+        <form id="optimization-form" novalidate>
+          <!-- Add Asset Bar -->
+          <div style="display: flex; gap: 0.45rem;">
+            <input 
+              type="text" 
+              id="new-ticker-input" 
+              class="input-field" 
+              placeholder="Enter symbol (e.g. SPY, GLD, NVDA)" 
+              style="text-transform: uppercase;"
+            >
+            <button 
+              type="button" 
+              id="btn-add-asset" 
+              class="btn-chip btn-add-primary"
+            >
+              + Add
+            </button>
           </div>
 
-          <!-- Add Asset Input -->
-          <div style="display: flex; gap: 0.4rem; margin-top: 0.85rem;">
-            <input type="text" id="new-ticker-input" class="input-field" placeholder="Add ticker (e.g. SPY, GLD, BTC-USD)" style="text-transform: uppercase;">
-            <button type="button" id="btn-add-asset" class="btn-chip" style="padding: 0.5rem 0.8rem; background: rgba(59, 130, 246, 0.2); color: #fff; border-color: var(--accent-blue);">+ Add</button>
+          <!-- Quick Suggestion Ticker Chips -->
+          <div class="quick-ticker-chips">
+            <span class="quick-chip-label">Quick Add:</span>
+            <button type="button" class="chip-tag" data-quick-ticker="SPY">+SPY</button>
+            <button type="button" class="chip-tag" data-quick-ticker="QQQ">+QQQ</button>
+            <button type="button" class="chip-tag" data-quick-ticker="NVDA">+NVDA</button>
+            <button type="button" class="chip-tag" data-quick-ticker="GLD">+GLD</button>
+            <button type="button" class="chip-tag" data-quick-ticker="TLT">+TLT</button>
+            <button type="button" class="chip-tag" data-quick-ticker="BTC-USD">+BTC</button>
           </div>
 
-          <!-- Quantitative Parameters -->
-          <div style="margin-top: 1.25rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+          <!-- Asset Allocations Table -->
+          <div class="table-wrapper">
+            <table class="asset-table">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th style="text-align: right;">Target Weight</th>
+                  <th style="text-align: center; width: 35px;"></th>
+                </tr>
+              </thead>
+              <tbody id="asset-tbody">
+                <!-- Dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Allocation Meter & Status Summary -->
+          <div class="allocation-summary-card">
+            <div class="weight-summary-row">
+              <span style="color: var(--text-muted);">Total Allocation:</span>
+              <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span id="weight-total-display" class="weight-valid">100.0%</span>
+                <span id="weight-status-badge" class="status-tag valid">Balanced</span>
+              </div>
+            </div>
+            <div class="allocation-meter-track">
+              <div id="weight-progress-bar" class="allocation-meter-fill" style="width: 100%; background-color: var(--accent-emerald);"></div>
+            </div>
+          </div>
+
+          <!-- Module 3: Quantitative Optimization Parameters -->
+          <div style="margin-top: 1.15rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
             <div class="input-group">
               <label class="input-label" for="input-lookback">
                 <span>Historical Lookback Window</span>
@@ -100,10 +160,10 @@
 
             <div class="input-group">
               <label class="input-label" for="input-rf">
-                <span>Risk-Free Rate ($R_f$)</span>
-                <span style="font-size: 0.7rem; color: var(--text-dim);">(US 10Y / 3M)</span>
+                <span>Risk-Free Rate (R<sub>f</sub>)</span>
+                <span style="font-size: 0.7rem; color: var(--text-muted);">(US 10Y Benchmark)</span>
               </label>
-              <input type="number" id="input-rf" class="input-field" value="4.5" step="0.1" min="0" max="15">
+              <input type="number" id="input-rf" class="input-field" value="4.5" step="any" min="0" max="15">
             </div>
 
             <div class="input-group">
@@ -112,30 +172,34 @@
               </label>
               <select id="input-max-weight" class="input-field">
                 <option value="100" selected>No Cap (100%)</option>
-                <option value="50">50% Max</option>
-                <option value="40">40% Max</option>
-                <option value="30">30% Max</option>
-                <option value="25">25% Max</option>
+                <option value="50">50% Max Cap</option>
+                <option value="40">40% Max Cap</option>
+                <option value="30">30% Max Cap</option>
+                <option value="25">25% Max Cap</option>
               </select>
             </div>
 
             <!-- Error Banner -->
-            <div id="error-alert" class="hidden" style="background: rgba(244, 63, 94, 0.15); border: 1px solid var(--accent-rose); color: #fecdd3; padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.78rem; margin-bottom: 1rem;"></div>
+            <div id="error-alert" class="hidden" style="background: var(--accent-rose-subtle); border: 1px solid var(--accent-rose); color: var(--accent-rose); padding: 0.75rem; border-radius: var(--radius-sm); font-size: 0.8rem; margin-bottom: 0.85rem; font-weight: 600;"></div>
 
+            <!-- Primary Execution Action -->
             <button type="submit" id="btn-optimize-submit" class="btn-primary">
               <span id="optimize-spinner" class="spinner hidden"></span>
               <span>⚡ Run Institutional Optimization</span>
             </button>
+            <div class="btn-micro-hint">
+              Markowitz Mean-Variance Tangency Solver • Groq AI CIO
+            </div>
           </div>
         </form>
-
       </div>
+
     </aside>
 
     <!-- Right Panel: Quantitative Visualizations & Actionability Dashboard -->
     <section class="dashboard-content" id="results-section">
       
-      <!-- Key Quantitative Metrics Grid -->
+      <!-- Section 1: Key Quantitative Performance Metrics Grid -->
       <div class="metrics-grid">
         <div class="metric-card emerald">
           <div class="metric-label">
@@ -150,7 +214,7 @@
 
         <div class="metric-card">
           <div class="metric-label">
-            <span>Annualized Volatility ($\sigma_p$)</span>
+            <span>Annualized Volatility (&sigma;<sub>p</sub>)</span>
             <span id="badge-vol-delta" class="delta-badge">--</span>
           </div>
           <div class="metric-value" id="card-opt-vol">--</div>
@@ -161,7 +225,7 @@
 
         <div class="metric-card amber">
           <div class="metric-label">
-            <span>Expected Annual Return ($\mu_p$)</span>
+            <span>Expected Return (&mu;<sub>p</sub>)</span>
             <span id="badge-return-delta" class="delta-badge">--</span>
           </div>
           <div class="metric-value" id="card-opt-return">--</div>
@@ -172,8 +236,8 @@
 
         <div class="metric-card purple">
           <div class="metric-label" title="Effective Number of Bets derived from correlation matrix eigenvalues via Shannon entropy">
-            <span>Effective Bets ($N_{\text{eff}}$)</span>
-            <span style="font-size: 0.65rem; color: var(--accent-purple); cursor: help;">INFO ⓘ</span>
+            <span>Effective Bets (N<sub>eff</sub>)</span>
+            <span style="font-size: 0.68rem; color: var(--accent-purple); cursor: help;">INFO ⓘ</span>
           </div>
           <div class="metric-value" id="card-effective-bets">--</div>
           <div class="metric-sub">
@@ -182,7 +246,7 @@
         </div>
       </div>
 
-      <!-- 🧠 AI INTELLIGENCE & PORTFOLIO DIAGNOSTIC HUB -->
+      <!-- Section 2: 🧠 AI INTELLIGENCE & PORTFOLIO DIAGNOSTIC HUB -->
       <div class="card ai-hub-card" id="ai-hub-container">
         <div class="ai-hub-header">
           <div class="ai-hub-title">
@@ -200,6 +264,9 @@
             </button>
             <button type="button" class="memo-toggle-btn" id="btn-toggle-roast">
               <span>🌶️ Roast My Portfolio</span>
+            </button>
+            <button type="button" class="memo-toggle-btn action-regen" id="btn-regen-ai" title="Re-generate commentary using Groq AI">
+              <span id="btn-regen-ai-text">⚡ AI Re-roll</span>
             </button>
           </div>
         </div>
@@ -275,15 +342,29 @@
 
       </div>
 
-      <!-- Tabbed Visualizations Container -->
+      <!-- Section 3: Tabbed Visualizations & Interactive Workspace Container -->
       <div class="charts-container">
         <div class="chart-tabs">
-          <button type="button" class="tab-btn active" data-tab="frontier">Efficient Frontier</button>
-          <button type="button" class="tab-btn" data-tab="stress">Macro Crisis Stress-Test 💥</button>
-          <button type="button" class="tab-btn" data-tab="whatif">What-If Sandbox 🎛️</button>
-          <button type="button" class="tab-btn" data-tab="heatmap">Correlation Matrix</button>
-          <button type="button" class="tab-btn" data-tab="volatility">Asset Volatilities</button>
-          <button type="button" class="tab-btn" data-tab="rolling">Rolling Stress Volatility</button>
+          <button type="button" class="tab-btn active" data-tab="frontier">
+            <span>📈 Efficient Frontier</span>
+          </button>
+          <button type="button" class="tab-btn" data-tab="stress">
+            <span>💥 Macro Crisis Stress-Test</span>
+            <span class="tab-badge">Interactive</span>
+          </button>
+          <button type="button" class="tab-btn" data-tab="whatif">
+            <span>🎛️ What-If Sandbox</span>
+            <span class="tab-badge">Live Sim</span>
+          </button>
+          <button type="button" class="tab-btn" data-tab="heatmap">
+            <span>🗺️ Correlation Matrix</span>
+          </button>
+          <button type="button" class="tab-btn" data-tab="volatility">
+            <span>📊 Asset Volatilities</span>
+          </button>
+          <button type="button" class="tab-btn" data-tab="rolling">
+            <span>📉 Rolling Stress Volatility</span>
+          </button>
         </div>
 
         <!-- Pane 1: Efficient Frontier -->
@@ -298,8 +379,8 @@
           <div class="stress-container">
             <div class="stress-header">
               <div>
-                <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; color: #fff;">Historical Market Crash Replay</h4>
-                <p style="margin: 0; font-size: 0.78rem; color: var(--text-dim);">Simulates your exact portfolio through the 5 largest historical liquidity and inflation shocks.</p>
+                <h4>Historical Market Crash Replay</h4>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Simulates your exact portfolio through the 5 largest historical liquidity and inflation shocks.</p>
               </div>
               <div class="stress-scenario-selector" id="stress-scenario-selector">
                 <!-- Populated dynamically -->
@@ -310,8 +391,8 @@
             <div class="stress-detail-card" id="stress-detail-card">
               <div class="stress-detail-header">
                 <div>
-                  <h3 id="stress-scenario-name" style="margin: 0 0 0.25rem 0; color: #fff; font-size: 1.1rem;">2020 COVID-19 Liquidity Shock</h3>
-                  <p id="stress-scenario-desc" style="margin: 0; color: var(--text-muted); font-size: 0.8rem;">Rapid systemic market shutdown...</p>
+                  <h3 id="stress-scenario-name" style="margin: 0 0 0.25rem 0; color: var(--text-main); font-size: 1.15rem; font-weight: 800;">2020 COVID-19 Liquidity Shock</h3>
+                  <p id="stress-scenario-desc" style="margin: 0; color: var(--text-muted); font-size: 0.82rem;">Rapid systemic market shutdown...</p>
                 </div>
                 <div class="cushion-badge" id="stress-cushion-badge">+8.4% Downside Cushion</div>
               </div>
@@ -343,7 +424,7 @@
               </div>
 
               <div class="stress-commentary-box">
-                <span class="info-icon">💡</span>
+                <span class="info-icon" style="font-size: 1.1rem;">💡</span>
                 <span id="stress-commentary-text">Evaluating stress recovery dynamics...</span>
               </div>
             </div>
@@ -354,25 +435,23 @@
         <div class="tab-pane hidden" id="pane-whatif">
           <div class="whatif-container">
             <div class="whatif-header">
-              <div>
-                <h4 style="margin: 0 0 0.25rem 0; font-size: 0.95rem; color: #fff;">Interactive "What-If" Portfolio Sandbox</h4>
-                <p style="margin: 0; font-size: 0.78rem; color: var(--text-dim);">Test how adding orthogonal asset classes alters your Sharpe frontier and tail protection in real time.</p>
-              </div>
+              <h4>Interactive "What-If" Portfolio Sandbox</h4>
+              <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0;">Test how adding orthogonal asset classes alters your Sharpe frontier and tail protection in real time.</p>
             </div>
 
             <div class="whatif-pills-row">
-              <span style="font-size: 0.8rem; color: var(--text-muted); align-self: center;">Test Injections:</span>
-              <button type="button" class="btn-chip whatif-pill" data-whatif="gld">+ 10% Gold (GLD)</button>
-              <button type="button" class="btn-chip whatif-pill" data-whatif="tlt">+ 15% Long Treasuries (TLT)</button>
-              <button type="button" class="btn-chip whatif-pill" data-whatif="btc">+ 5% Bitcoin (BTC-USD)</button>
-              <button type="button" class="btn-chip whatif-pill" data-whatif="cash">+ 15% Cash (BIL)</button>
+              <span style="font-size: 0.8rem; color: var(--text-muted); align-self: center; font-weight: 600;">Test Injections:</span>
+              <button type="button" class="whatif-pill active" data-whatif="gld">+ 10% Gold (GLD)</button>
+              <button type="button" class="whatif-pill" data-whatif="tlt">+ 15% Long Treasuries (TLT)</button>
+              <button type="button" class="whatif-pill" data-whatif="btc">+ 5% Bitcoin (BTC-USD)</button>
+              <button type="button" class="whatif-pill" data-whatif="cash">+ 15% Cash (BIL)</button>
             </div>
 
             <!-- Projected Impact Card -->
             <div class="whatif-impact-card" id="whatif-impact-card">
               <div class="impact-title-row">
                 <span id="whatif-candidate-name">Selected: +10% Gold (GLD)</span>
-                <button type="button" id="btn-inject-asset" class="btn-chip" style="background: rgba(16, 185, 129, 0.2); color: #34d399; border-color: #10b981;">
+                <button type="button" id="btn-inject-asset" class="btn-chip btn-inject-action">
                   <span>⚡ Inject into Portfolio Table</span>
                 </button>
               </div>
@@ -421,11 +500,11 @@
         </div>
       </div>
 
-      <!-- Rebalance Actionability & Comparison Table -->
+      <!-- Section 4: Rebalance Actionability & Comparison Table -->
       <div class="rebalance-section">
         <div class="card">
           <div class="card-title">
-            <span>Portfolio Rebalancing & Trade Execution Ticket</span>
+            <span class="card-title-icon">📋 Rebalancing & Trade Execution Ticket</span>
             <button type="button" id="btn-copy-ticket" class="btn-chip" title="Copy broker-ready orders to clipboard">
               <span>📋 Copy Trade Ticket</span>
             </button>
@@ -436,7 +515,7 @@
                 <th>Asset</th>
                 <th>Current %</th>
                 <th>Optimized %</th>
-                <th>Delta ($\Delta w$)</th>
+                <th>Delta (&Delta;w)</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -450,8 +529,8 @@
         <div class="card apply-card">
           <div>
             <div class="card-title">Execute Rebalance</div>
-            <p style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.6;">
-              Transfer the mathematical tangency weights into your active portfolio parameters with one click.
+            <p style="font-size: 0.82rem; color: var(--text-muted); line-height: 1.6;">
+              Transfer the mathematical tangency weights directly into your active portfolio parameters with one click.
             </p>
           </div>
 
@@ -464,7 +543,78 @@
     </section>
   </main>
 
+  <!-- Floating AI Copilot Widget -->
+  <div class="copilot-widget" id="copilot-widget">
+    <!-- Floating Launcher Trigger Button -->
+    <button type="button" class="copilot-launcher-btn" id="btn-open-copilot" aria-label="Open Alphawise Copilot">
+      <div class="launcher-pulse"></div>
+      <span class="launcher-icon">🤖</span>
+      <span class="launcher-label">Ask Copilot</span>
+    </button>
+
+    <!-- Floating Chat Window -->
+    <div class="copilot-window hidden" id="copilot-window">
+      <div class="copilot-header">
+        <div class="copilot-header-info">
+          <div class="copilot-avatar">⚡</div>
+          <div>
+            <div class="copilot-title">Alphawise AI Copilot</div>
+            <div class="copilot-subtitle">Groq Llama 3.3 70B • Portfolio & Market Analyst</div>
+          </div>
+        </div>
+        <div class="copilot-header-actions">
+          <button type="button" class="copilot-icon-btn" id="btn-clear-chat" title="Clear conversation">🗑️</button>
+          <button type="button" class="copilot-icon-btn" id="btn-close-copilot" title="Close Copilot">✕</button>
+        </div>
+      </div>
+
+      <!-- Active Portfolio Context Indicator -->
+      <div class="copilot-context-bar" id="copilot-context-bar">
+        <span class="context-dot"></span>
+        <span id="copilot-context-label">Ready: Ask about your portfolio or any stock</span>
+      </div>
+
+      <!-- Quick Suggestion Pills -->
+      <div class="copilot-suggestions" id="copilot-suggestions">
+        <button type="button" class="suggestion-chip" data-prompt="Why are you recommending these specific rebalance trades?">Why buy/sell these?</button>
+        <button type="button" class="suggestion-chip" data-prompt="What is my biggest portfolio risk and how do I fix it?">What is my biggest risk?</button>
+        <button type="button" class="suggestion-chip" data-prompt="Explain my Effective Number of Bets (N_eff) in simple terms.">Explain my factor bets</button>
+        <button type="button" class="suggestion-chip" data-prompt="Analyze the valuation and momentum for NVDA">Check NVDA</button>
+      </div>
+
+      <!-- Chat Messages Container -->
+      <div class="copilot-messages" id="copilot-messages">
+        <div class="chat-msg bot">
+          <div class="msg-bubble">
+            <p>👋 <strong>Welcome to Alphawise Copilot!</strong></p>
+            <p style="margin-top: 6px;">I have real-time mathematical awareness of your portfolio holdings. Ask me anything:</p>
+            <ul style="margin-top: 6px; padding-left: 18px; line-height: 1.5;">
+              <li><em>"Why should I trim my top stock?"</em></li>
+              <li><em>"How will my portfolio hold up in a recession?"</em></li>
+              <li><em>"What is Cornish-Fisher VaR?"</em></li>
+              <li>Or ask about any ticker: <em>"Check P/E and price for AAPL"</em></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat Input Area -->
+      <form class="copilot-input-area" id="copilot-form">
+        <input 
+          type="text" 
+          id="copilot-input" 
+          class="copilot-input" 
+          placeholder="Ask about your stocks or type any ticker..." 
+          autocomplete="off"
+        />
+        <button type="submit" class="copilot-send-btn" id="btn-send-chat" aria-label="Send message">
+          <span>➤</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
   <!-- App Entrypoint Script -->
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js?v=2.5.5"></script>
 </body>
 </html>

@@ -1,10 +1,78 @@
 /**
- * CapitalX Chart.js Visualization Engine
+ * Alphawise Chart.js & Visualization Engine
+ * Theme-aware rendering for Institutional Bright Mode and Dark Mode.
  */
 
 let frontierChartInstance = null;
 let volatilityChartInstance = null;
 let rollingVolChartInstance = null;
+
+function getThemeConfig() {
+  return {
+    isDark: true,
+    textColor: '#A0AAA1',
+    tickColor: '#68746B',
+    gridColor: 'rgba(39, 52, 42, 0.4)',
+    tooltipBg: '#151C17',
+    tooltipTitle: '#F1F4ED',
+    tooltipBody: '#A0AAA1',
+    tooltipBorder: '#27342A',
+    frontierLine: '#C7F36B',
+    frontierFill: 'rgba(199, 243, 107, 0.08)',
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif"
+  };
+}
+
+function getStarPointStyle(isDark) {
+  if (typeof document === 'undefined') return 'star';
+  try {
+    const size = 20;
+    const canvas = document.createElement('canvas');
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return 'star';
+
+    const cx = size / 2;
+    const cy = size / 2;
+    const spikes = 5;
+    const outerRadius = 8;
+    const innerRadius = 3.5;
+
+    let rot = (Math.PI / 2) * 3;
+    let x = cx;
+    let y = cy;
+    const step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+      x = cx + Math.cos(rot) * outerRadius;
+      y = cy + Math.sin(rot) * outerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+
+      x = cx + Math.cos(rot) * innerRadius;
+      y = cy + Math.sin(rot) * innerRadius;
+      ctx.lineTo(x, y);
+      rot += step;
+    }
+    ctx.lineTo(cx, cy - outerRadius);
+    ctx.closePath();
+
+    // Solid filled star in acid green with dark crisp outline
+    ctx.fillStyle = '#C7F36B';
+    ctx.fill();
+
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#080B0A';
+    ctx.stroke();
+
+    return canvas;
+  } catch (e) {
+    return 'star';
+  }
+}
 
 export class ChartManager {
   /**
@@ -14,6 +82,8 @@ export class ChartManager {
     if (frontierChartInstance) {
       frontierChartInstance.destroy();
     }
+
+    const theme = getThemeConfig();
 
     // Sort frontier by volatility
     const sortedFrontier = [...frontierPoints].sort((a, b) => a.volatility - b.volatility);
@@ -34,9 +104,9 @@ export class ChartManager {
       {
         label: 'Efficient Frontier Curve',
         data: frontierScatter,
-        borderColor: '#38bdf8',
-        backgroundColor: 'rgba(56, 189, 248, 0.1)',
-        borderWidth: 2.5,
+        borderColor: theme.frontierLine,
+        backgroundColor: theme.frontierFill,
+        borderWidth: 2,
         fill: false,
         tension: 0.3,
         showLine: true,
@@ -45,18 +115,19 @@ export class ChartManager {
         type: 'scatter'
       },
       {
-        label: 'Max Sharpe (Tangency)',
+        label: 'Max Sharpe (Tangency Portfolio)',
         data: [{
           x: +(maxSharpePort.volatility * 100).toFixed(2),
           y: +(maxSharpePort.expected_return * 100).toFixed(2),
           sharpe: maxSharpePort.sharpe_ratio
         }],
-        backgroundColor: '#10b981',
-        borderColor: '#ffffff',
+        backgroundColor: '#C7F36B',
+        borderColor: '#080B0A',
         borderWidth: 2,
         pointRadius: 9,
         pointHoverRadius: 12,
-        pointStyle: 'star',
+        pointStyle: getStarPointStyle(true),
+        order: -1,
         type: 'scatter'
       },
       {
@@ -66,12 +137,13 @@ export class ChartManager {
           y: +(minVolPort.expected_return * 100).toFixed(2),
           sharpe: minVolPort.sharpe_ratio
         }],
-        backgroundColor: '#f59e0b',
-        borderColor: '#ffffff',
+        backgroundColor: '#62B6F5',
+        borderColor: '#080B0A',
         borderWidth: 2,
         pointRadius: 8,
         pointHoverRadius: 11,
         pointStyle: 'triangle',
+        order: 0,
         type: 'scatter'
       },
       {
@@ -81,20 +153,24 @@ export class ChartManager {
           y: +(currentPort.expected_return * 100).toFixed(2),
           sharpe: currentPort.sharpe_ratio
         }],
-        backgroundColor: '#a855f7',
-        borderColor: '#ffffff',
+        backgroundColor: '#FF647C',
+        borderColor: '#080B0A',
         borderWidth: 2,
         pointRadius: 8,
         pointHoverRadius: 11,
         pointStyle: 'rectRot',
+        order: 0,
         type: 'scatter'
       },
       {
         label: 'Individual Assets',
         data: assetPoints,
-        backgroundColor: '#64748b',
+        backgroundColor: '#68746B',
+        borderColor: '#27342A',
+        borderWidth: 1.5,
         pointRadius: 5,
         pointHoverRadius: 8,
+        order: 1,
         type: 'scatter'
       }
     ];
@@ -108,14 +184,21 @@ export class ChartManager {
         plugins: {
           legend: {
             position: 'top',
-            labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+            labels: {
+              color: theme.textColor,
+              font: { family: theme.fontFamily, size: 12, weight: '600' },
+              padding: 14,
+              usePointStyle: true
+            }
           },
           tooltip: {
-            backgroundColor: '#1e293b',
-            titleColor: '#f8fafc',
-            bodyColor: '#cbd5e1',
-            borderColor: '#334155',
+            backgroundColor: theme.tooltipBg,
+            titleColor: theme.tooltipTitle,
+            bodyColor: theme.tooltipBody,
+            borderColor: theme.tooltipBorder,
             borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8,
             callbacks: {
               label: function(ctx) {
                 const raw = ctx.raw;
@@ -131,14 +214,24 @@ export class ChartManager {
         },
         scales: {
           x: {
-            title: { display: true, text: 'Annualized Volatility (Risk) %', color: '#94a3b8', font: { size: 12 } },
-            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-            ticks: { color: '#64748b' }
+            title: {
+              display: true,
+              text: 'Annualized Volatility (Risk) %',
+              color: theme.textColor,
+              font: { family: theme.fontFamily, size: 12, weight: '600' }
+            },
+            grid: { color: theme.gridColor },
+            ticks: { color: theme.tickColor, font: { family: theme.fontFamily } }
           },
           y: {
-            title: { display: true, text: 'Annualized Expected Return %', color: '#94a3b8', font: { size: 12 } },
-            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-            ticks: { color: '#64748b' }
+            title: {
+              display: true,
+              text: 'Annualized Expected Return %',
+              color: theme.textColor,
+              font: { family: theme.fontFamily, size: 12, weight: '600' }
+            },
+            grid: { color: theme.gridColor },
+            ticks: { color: theme.tickColor, font: { family: theme.fontFamily } }
           }
         }
       }
@@ -152,6 +245,7 @@ export class ChartManager {
     container.innerHTML = '';
     const table = document.createElement('table');
     table.className = 'heatmap-table';
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
     // Header row
     const thead = document.createElement('thead');
@@ -178,15 +272,23 @@ export class ChartManager {
         const val = corrMatrix[rowTicker] ? corrMatrix[rowTicker][colTicker] : null;
         if (val !== null && val !== undefined) {
           td.textContent = (+val).toFixed(2);
-          // Diverging color scale: val in [-1, 1]
-          // 1.0 is red/amber (high correlation), 0 is neutral dark blue, negative is green
-          const r = val > 0 ? Math.round(200 * val) : 20;
-          const g = val < 0 ? Math.round(180 * Math.abs(val)) : Math.round(50 * (1 - val));
-          const b = Math.round(120 * (1 - Math.abs(val)));
-          const opacity = Math.max(0.15, Math.abs(val) * 0.7);
 
-          td.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
-          td.style.color = '#ffffff';
+          if (rowTicker === colTicker) {
+            // Identity diagonal
+            td.style.backgroundColor = 'rgba(199, 243, 107, 0.15)';
+            td.style.color = '#C7F36B';
+            td.style.fontWeight = '700';
+          } else if (val > 0) {
+            // Positive correlation (coral/rose): higher = less diversification
+            const intensity = Math.min(1, Math.max(0, val));
+            td.style.backgroundColor = `rgba(255, 100, 124, ${0.08 + intensity * 0.42})`;
+            td.style.color = intensity > 0.4 ? '#FF8FA3' : '#F1F4ED';
+          } else {
+            // Negative correlation (green): strong diversification shelter
+            const intensity = Math.min(1, Math.max(0, Math.abs(val)));
+            td.style.backgroundColor = `rgba(155, 234, 69, ${0.08 + intensity * 0.42})`;
+            td.style.color = '#9BEA45';
+          }
           td.title = `${rowTicker} vs ${colTicker}: r = ${(+val).toFixed(3)}`;
         }
         tr.appendChild(td);
@@ -205,6 +307,8 @@ export class ChartManager {
       volatilityChartInstance.destroy();
     }
 
+    const theme = getThemeConfig();
+
     const labels = [...tickers, 'Current Port', 'Max Sharpe Port'];
     const data = [
       ...tickers.map(t => +((annualizedVols[t] || 0) * 100).toFixed(2)),
@@ -213,15 +317,15 @@ export class ChartManager {
     ];
 
     const backgroundColors = [
-      ...tickers.map(() => 'rgba(56, 189, 248, 0.4)'),
-      'rgba(168, 85, 247, 0.8)',
-      'rgba(16, 185, 129, 0.8)'
+      ...tickers.map(() => 'rgba(98, 182, 245, 0.35)'),
+      'rgba(255, 100, 124, 0.65)',
+      'rgba(199, 243, 107, 0.85)'
     ];
 
     const borderColors = [
-      ...tickers.map(() => '#38bdf8'),
-      '#a855f7',
-      '#10b981'
+      ...tickers.map(() => '#62B6F5'),
+      '#FF647C',
+      '#C7F36B'
     ];
 
     volatilityChartInstance = new Chart(canvas, {
@@ -243,6 +347,13 @@ export class ChartManager {
         plugins: {
           legend: { display: false },
           tooltip: {
+            backgroundColor: theme.tooltipBg,
+            titleColor: theme.tooltipTitle,
+            bodyColor: theme.tooltipBody,
+            borderColor: theme.tooltipBorder,
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8,
             callbacks: {
               label: (ctx) => ` Volatility: ${ctx.parsed.y}%`
             }
@@ -250,13 +361,18 @@ export class ChartManager {
         },
         scales: {
           x: {
-            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-            ticks: { color: '#94a3b8' }
+            grid: { color: theme.gridColor },
+            ticks: { color: theme.tickColor, font: { family: theme.fontFamily, weight: '600' } }
           },
           y: {
-            title: { display: true, text: 'Volatility %', color: '#94a3b8' },
-            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-            ticks: { color: '#64748b' }
+            title: {
+              display: true,
+              text: 'Volatility %',
+              color: theme.textColor,
+              font: { family: theme.fontFamily, size: 12, weight: '600' }
+            },
+            grid: { color: theme.gridColor },
+            ticks: { color: theme.tickColor, font: { family: theme.fontFamily } }
           }
         }
       }
@@ -271,21 +387,23 @@ export class ChartManager {
       rollingVolChartInstance.destroy();
     }
 
+    const theme = getThemeConfig();
+
     const datasets = [
       {
         label: 'Current Portfolio Vol',
         data: rollingMetrics.current_portfolio_vol.map(v => v !== null ? +(v * 100).toFixed(2) : null),
-        borderColor: '#a855f7',
+        borderColor: '#FF647C',
         borderWidth: 2,
-        tension: 0.2,
+        tension: 0.25,
         pointRadius: 0
       },
       {
         label: 'Max Sharpe Portfolio Vol',
         data: rollingMetrics.max_sharpe_vol.map(v => v !== null ? +(v * 100).toFixed(2) : null),
-        borderColor: '#10b981',
+        borderColor: '#C7F36B',
         borderWidth: 2,
-        tension: 0.2,
+        tension: 0.25,
         pointRadius: 0
       }
     ];
@@ -302,9 +420,21 @@ export class ChartManager {
         plugins: {
           legend: {
             position: 'top',
-            labels: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
+            labels: {
+              color: theme.textColor,
+              font: { family: theme.fontFamily, size: 12, weight: '600' },
+              padding: 14,
+              usePointStyle: true
+            }
           },
           tooltip: {
+            backgroundColor: theme.tooltipBg,
+            titleColor: theme.tooltipTitle,
+            bodyColor: theme.tooltipBody,
+            borderColor: theme.tooltipBorder,
+            borderWidth: 1,
+            padding: 10,
+            cornerRadius: 8,
             callbacks: {
               label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y}%`
             }
@@ -312,13 +442,18 @@ export class ChartManager {
         },
         scales: {
           x: {
-            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-            ticks: { color: '#64748b', maxTicksLimit: 8 }
+            grid: { color: theme.gridColor },
+            ticks: { color: theme.tickColor, maxTicksLimit: 8, font: { family: theme.fontFamily } }
           },
           y: {
-            title: { display: true, text: '63-Day Rolling Volatility %', color: '#94a3b8' },
-            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-            ticks: { color: '#64748b' }
+            title: {
+              display: true,
+              text: '63-Day Rolling Volatility %',
+              color: theme.textColor,
+              font: { family: theme.fontFamily, size: 12, weight: '600' }
+            },
+            grid: { color: theme.gridColor },
+            ticks: { color: theme.tickColor, font: { family: theme.fontFamily } }
           }
         }
       }

@@ -12,9 +12,9 @@ from fastapi import APIRouter, HTTPException
 from app.models.request import OptimizationRequest
 from app.models.response import OptimizationResponse
 from app.services.portfolio_agent import PortfolioAgent
-from app.core.exceptions import CapitalXException
+from app.core.exceptions import AlphawiseException
 
-logger = logging.getLogger("capitalx.api")
+logger = logging.getLogger("alphawise.api")
 router = APIRouter()
 
 
@@ -46,7 +46,7 @@ async def optimize_portfolio(request: OptimizationRequest):
             frontier_points=request.frontier_points,
         )
         return result
-    except CapitalXException as ce:
+    except AlphawiseException as ce:
         raise HTTPException(status_code=ce.status_code, detail=ce.message)
     except ValueError as ve:
         raise HTTPException(status_code=422, detail=str(ve))

@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
+
 
 class PortfolioSummary(BaseModel):
     weights: Dict[str, float] = Field(..., description="Normalized asset allocation weights (sum to 1.0)")
@@ -111,3 +112,11 @@ class OptimizationResponse(BaseModel):
     health_score: Optional[HealthScore] = Field(default=None, description="Quantitative portfolio health rating and score (0-100)")
     ai_commentary: Optional[AiCommentary] = Field(default=None, description="Institutional CIO memo and FinTwit roast commentary")
     stress_tests: Optional[List[StressTestScenario]] = Field(default=None, description="Historical macro crisis stress simulations")
+
+class ChatResponse(BaseModel):
+    status: str = "success"
+    reply: str
+    mentioned_tickers: List[str] = Field(default_factory=list)
+    live_data: Dict[str, Any] = Field(default_factory=dict)
+    model: str
+

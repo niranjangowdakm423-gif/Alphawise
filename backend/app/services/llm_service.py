@@ -77,7 +77,7 @@ class LLMService:
         # Candidate models to try in order of preference
         primary = settings.active_model
         candidate_models = [primary]
-        for fallback_m in ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]:
+        for fallback_m in ["llama-3.1-8b-instant", "llama3-8b-8192", "llama-3.3-70b-versatile", "mixtral-8x7b-32768", "gemma2-9b-it"]:
             if fallback_m not in candidate_models:
                 candidate_models.append(fallback_m)
 

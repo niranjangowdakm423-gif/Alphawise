@@ -38,20 +38,36 @@ async def check_copilot_connection():
     masked_key = f"{key[:7]}...{key[-4:]}" if len(key) >= 12 else ("(none)" if not key else "(too short)")
 
     test_result = {"status": "untested", "details": None}
+    available_models = []
+    working_model = None
+
     if key:
         headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
-        payload = {
-            "model": model,
-            "messages": [{"role": "user", "content": "ping"}],
-            "max_tokens": 5,
-        }
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
-                r = await client.post(f"{base_url.rstrip('/')}/chat/completions", headers=headers, json=payload)
-                if r.status_code == 200:
-                    test_result = {"status": "connected", "code": 200, "message": "Groq LLM is online and responsive!"}
-                else:
-                    test_result = {"status": "error", "code": r.status_code, "response": r.text[:300]}
+                # 1. Fetch available models from Groq
+                models_resp = await client.get(f"{base_url.rstrip('/')}/models", headers=headers)
+                if models_resp.status_code == 200:
+                    data = models_resp.json()
+                    available_models = [m["id"] for m in data.get("data", [])]
+
+                # 2. Find first working chat model
+                # Preferred chat candidates
+                candidates = [model, "llama-3.1-8b-instant", "llama3-8b-8192", "mixtral-8x7b-32768", "gemma2-9b-it"]
+                for cand in candidates:
+                    if cand in available_models or not available_models:
+                        test_payload = {
+                            "model": cand,
+                            "messages": [{"role": "user", "content": "ping"}],
+                            "max_tokens": 5,
+                        }
+                        r = await client.post(f"{base_url.rstrip('/')}/chat/completions", headers=headers, json=test_payload)
+                        if r.status_code == 200:
+                            working_model = cand
+                            test_result = {"status": "connected", "code": 200, "working_model": cand, "message": f"Successfully connected to Groq with model '{cand}'!"}
+                            break
+                        else:
+                            test_result = {"status": "error", "code": r.status_code, "failed_model": cand, "response": r.text[:300]}
         except Exception as e:
             test_result = {"status": "exception", "error": str(e)}
 
@@ -59,7 +75,9 @@ async def check_copilot_connection():
         "is_configured": LLMService.is_configured(),
         "masked_api_key": masked_key,
         "active_model": model,
-        "base_url": base_url,
+        "working_model": working_model,
+        "available_models_count": len(available_models),
+        "available_models": available_models[:15],
         "direct_groq_test": test_result,
     }
 

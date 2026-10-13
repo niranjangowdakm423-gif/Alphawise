@@ -498,6 +498,7 @@ class LLMService:
         company_tickers = {
             "tata steel": ("TATASTEEL.NS", "NSE (National Stock Exchange of India) / TATASTEEL.BO"),
             "tata motors": ("TATAMOTORS.NS", "NSE (India) / TATAMOTORS.BO"),
+            "tata": ("TATASTEEL.NS / TATAMOTORS.NS", "Tata Steel: TATASTEEL.NS, Tata Motors: TATAMOTORS.NS, TCS: TCS.NS (NSE/BSE)"),
             "tcs": ("TCS.NS", "NSE (India) / TCS.BO"),
             "reliance": ("RELIANCE.NS", "NSE (India) / RELIANCE.BO"),
             "infosys": ("INFY", "NYSE / INFY.NS"),

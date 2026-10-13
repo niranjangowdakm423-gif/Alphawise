@@ -34,11 +34,19 @@ class Settings(BaseModel):
 
     @property
     def active_api_key(self) -> str:
-        return os.getenv("GROQ_API_KEY", "") or os.getenv("LLM_API_KEY", "") or self.GROQ_API_KEY or self.LLM_API_KEY or ""
+        raw = os.getenv("GROQ_API_KEY", "") or os.getenv("LLM_API_KEY", "") or self.GROQ_API_KEY or self.LLM_API_KEY or ""
+        raw = raw.strip()
+        if "=" in raw:
+            raw = raw.split("=", 1)[1].strip()
+        return raw.strip("\"' \t\r\n")
 
     @property
     def active_model(self) -> str:
         raw = os.getenv("LLM_MODEL", "") or self.LLM_MODEL or "llama-3.3-70b-versatile"
+        raw = raw.strip()
+        if "=" in raw:
+            raw = raw.split("=", 1)[1].strip()
+        raw = raw.strip("\"' \t\r\n")
         # Protect against non-chat models (like prompt-guard or whisper) accidentally selected in dashboards
         if not raw or any(bad in raw.lower() for bad in ["guard", "prompt-guard", "classifier", "whisper"]):
             return "llama-3.3-70b-versatile"

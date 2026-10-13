@@ -22,6 +22,48 @@ logger = logging.getLogger("alphawise.chat")
 router = APIRouter(tags=["AI Copilot"])
 
 
+@router.get(
+    "/copilot-health",
+    summary="Diagnostic Health Check for LLM / Groq API Connection",
+)
+async def check_copilot_connection():
+    """Diagnoses Groq API key configuration, active model, and connectivity."""
+    from app.core.config import settings
+    import httpx
+
+    key = settings.active_api_key
+    model = settings.active_model
+    base_url = settings.active_base_url
+
+    masked_key = f"{key[:7]}...{key[-4:]}" if len(key) >= 12 else ("(none)" if not key else "(too short)")
+
+    test_result = {"status": "untested", "details": None}
+    if key:
+        headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+        payload = {
+            "model": model,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 5,
+        }
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                r = await client.post(f"{base_url.rstrip('/')}/chat/completions", headers=headers, json=payload)
+                if r.status_code == 200:
+                    test_result = {"status": "connected", "code": 200, "message": "Groq LLM is online and responsive!"}
+                else:
+                    test_result = {"status": "error", "code": r.status_code, "response": r.text[:300]}
+        except Exception as e:
+            test_result = {"status": "exception", "error": str(e)}
+
+    return {
+        "is_configured": LLMService.is_configured(),
+        "masked_api_key": masked_key,
+        "active_model": model,
+        "base_url": base_url,
+        "direct_groq_test": test_result,
+    }
+
+
 @router.post(
     "/chat",
     response_model=ChatResponse,
